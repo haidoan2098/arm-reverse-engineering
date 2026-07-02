@@ -1,0 +1,53 @@
+1. Historical background 
+    The concept Reverse Engineer ban đầu không thuộc về software.
+    Nó xuất hiện trong ngành cơ khí (mechanical) và quân sự (military).
+
+    Wartime:
+        Ví dụ into the century 18-19:
+            - A country chế tạo được a new khẩu pháo.
+            - Other country thu được khẩu pháo đó.
+        They will:
+            - Tháo rời từng bộ phận.
+            - Đo kích thước.
+            - Phân tích vật liệu.
+            - Vẽ lại bản thiết kế.
+            - ...
+        Target: "Làm sao mà họ chế tạo được thứ này nhỉ?"
+        --> That is Reverse Engineering.
+        Nó là quá trình đi ngược từ sản phẩm --> thiết kế. 
+
+    Computer Age:
+        When a software trở thành a commercial product, a new problem has emerged (đã xuất hiện).
+        You buy:
+            Microsoft Word
+        You only receive:
+            word.exe
+        You don't have source code.
+        But sometimes bạn vẫn cần:
+            - hiểu file định dạng
+            - tương thích
+            - fix bug
+            - check xem bên người khác có cài cắm gì vào ko
+            - ... 
+        --> Thế là RE được áp dụng vào phần mềm 
+    
+    Vậy "nguồn gốc" thật sự là gì? 
+        Động lực 1: Cạnh tranh công nghệ
+            Một bên tạo ra công nghệ.
+            Bên khác muốn:
+                - study, copy, innovate (cải tiến),...
+        Động lực 2: Thiếu thông tin 
+            Có 1 hệ thống.
+            Nhưng:
+                - ko có bản thiết kế, ko có tài liệu, ko có source...
+            Muốn sửa hoặc tích hợp thì phải tự tìm hiểu. 
+
+2. Modern application : Firmware RE 
+    Bối cảnh:
+        Sự bùng nổ của IOT, dẫn đến độ tin cậy càng lớn -> cần có nhu cầu đánh giá nó nhưng:
+        1. Firmware luôn đóng, ít open source
+        2. Vòng đời support cực ngắn so với vòng đời sử dụng thực thế
+        --> Kết quả: thiết bị chạy firmware ko ai check, ko ai vá, ko ai biết bên trong có gì (ngoài vendor)
+                     tạo ra 1 bề mặt attack khổng lồ. 
+                --> Cần có kỹ thuật: trước mắt đánh giá về tính bảo mật, việc tái tạo lại firmware thì nhu cầu sau.
+                
