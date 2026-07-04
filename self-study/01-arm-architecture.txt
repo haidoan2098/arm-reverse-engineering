@@ -1,0 +1,133 @@
+Chpapter 0: Foundations 
+    Target: giúp hiểu bức tranh tổng quan về  CPU
+	
+	* CPU only understand machine code 
+	
+    0.1 Nnlt đi đến machine code bằng con đường nào - 3 con đường chính (thật ra có nhiều hơn)
+    	Compiler - Biên dịch trực tiếp (C/C++, Rust,...)
+    		Source code -> Compiler -> Machine Code --> CPU
+    		Computer như dịch cả 1 cuốn sách sang tiếng khác 1 lần, in ra sách mới -> CPU đọc thì đọc thẳng bản dịch.
+    	
+    	Interpreter - Thông dịch (Nhờ đứa khác dịch hộ ra cho) (Python,...)
+    		Source code --> Interpreter -> Machine code --> CPU 
+    		Interpreter == người phiên dịch đứng dịch trực tiếp từng câu khi CPU đọc.
+    	
+    	Bytecode + Virtual Machine (Java,...)
+    		Source code --> Compiler --> Bytecode --> VM --> Machine code --> CPU
+    		Bytecode là 1 dạng "machine code", nhưng ko dành cho CPU thật - mà dành cho "CPU giả lập" gọi là Virtual Machine. 
+    		CPU thật thì chạy tất cả các phần trên. 
+			* Nhu cầu viết code 1 lần chạy ở mọi CPU. 
+        
+    	** Reality: firmware ko phải lúc nào cũng thuần 1 ngôn ngữ. 
+    		Case 1: Languages compiled trực tiếp ra machine code (C/C++, Rust,...)
+    			Asm sinh ra khác nhau về "dấu vân tay", dù cùng chạy trên 1 CPU, vì mỗi compiler chèn thêm runtime support code khác nhau.
+    			--> Nhận diện được compiler gốc chỉ bằng nhìn asm trước khi đọc logic thật, việc "đoán được đây là C hay C++ hay Rust" thu hẹp chiến lược phân tích. 
+    		Case 2: Nếu 1 phần firmware nhúng 1 nnlt khác (Java, Python,...) - vd: router có script Lua cho web UI hay Python nhúng cho tính năng thông minh
+    			Nếu ko nhận ra, sẽ mất thời gian rất nhiều, nếu gặp trường hợp này phải xử lý khác (xử lý như nào thì chịu, chưa tìm hiểu)
+    			
+	0.2 ARM ISA	
+		- 1 CPU được thiết kế để thực thi 1 ISA (instruction set architecture) cụ thể.
+			ISA là kết quả của những mục tiêu thiết kế khác nhau. 
+				+ x86: Hiệu năng cao
+				+ ARM: Simple, tiết kiệm điện. 
+				+ RISC-V
+				+ ... 
+		- Các dòng thiết kế CPU của ARM, được tối ưu cho những mục đích khác nhau.	
+			ARM (Company)
+				│
+				├── ARM Architecture / ISA
+				│
+				├── Cortex-A = Application: Trang bị MMU, để làm các nhiệm vụ phức tạp cần OS.
+				├── Cortex-R = Real-time: Xử lý thời gian thực, độ trễ cực thấp.
+				└── Cortex-M = Microcontroller: Vi điều khiển tiết kiệm điện.
+		- ARM architecture được phân loại theo độ rộng thanh ghi (Execution State), có 2  loại: AArch32 and AArch64, mỗi state sẽ đi kèm 1 ISA riêng.	
+			Phân loại: 
+				ARM
+				├── AArch64 (64-bit) - sử dụng các thanh ghi X0-X30.
+				│		│
+				│		└── A64 state
+				└── AArch32 (32-bit) - sử dụng các thanh ghi R0-R15.
+						│
+						├── ARM state 
+						└── Thumb state (thumb, thumb-2)
+						
+		* Một chương trình sẽ chạy trong một execution state: AArch64 hoặc AArch32. Nếu chạy trong AArch32 và CPU hỗ trợ cả ARM state lẫn Thumb state, thì trong quá trình thực thi chương trình có thể chuyển đổi qua lại giữa ARM state và Thumb state.
+		
+    	** Trong embedded thì 1 điều chắc chắn sẽ gặp C (ngôn ngữ compiler), vậy thì ASM sẽ gần như map 1 1 với Machine code, khi có Machine code thì sẽ có được Disassembly (ko cần đoán gì nữa cả). 
+    		Có Disassembly thì nếu tái tạo lại Source code gốc thì ko thể được thì đã có compiler tối ưu hóa đi rồi.  
+    		Điều DUY NHẤT gây bất định trong bước disassemble là: xác định đúng mode (ARM hay Thumb, vì 2 cái này chỉ tồn tại bên AArch32 và có thể xen kẽ trong cùng 1 binary). Nếu là AArch64 thì không có vấn đề này — chỉ có 1 tập lệnh (A64) duy nhất, không có mode nào để nhầm lẫn cả.
+
+	0.3 Tìm hiểu deeper into AArch32
+		Layer 1: Register + AAPCS (ARM Architecture Procedure Call Standard)
+			AArch32 cung cấp 16 thanh ghi (R0-R15).
+			AArch32 còn có CPSR (Current Program Status Register), dùng để lưu trạng thái hiện tại của CPU.
+			Theo chuẩn AAPCS, các compiler tuân theo một số quy ước khi sử dụng các thanh ghi này để các hàm có thể gọi nhau 1 cách thống nhất. 
+				AAPCS quy định: tại thời điểm gọi hàm, các thanh ghi này phải mang ý nghĩa như sau. Ngoài thời điểm đó, compiler có thể dùng chúng rất linh hoạt.
+
+			Group 1: R0-R12
+				+ R0-R3: truyền tham số (argument) khi gọi hàm - tối đa 4 tham số đầu tiên nằm ở đây (nhiều hơn thì đẩy qua stack). 
+						 Sau khi hàm kết thúc, R0 sẽ chứa giá trị return value of function (và R1 có thể đc dùng nếu giá trị lớn hơn 1 thanh ghi, ví dụ 64 bit)
+				+ R4-R11: ví dụ hàm A gọi hàm B, thì B phải chủ động bảo toàn data cho A ở các thanh ghi này, nó sẽ phải PUSH (đẩy lên stack), sau đấy thì thằng B tha hồ dùng các register này, xong việc thì phải POP (lấy từ stack về) trả lại cho A.
+				+ R7: SVC #0, số hiệu syscall
+				+ R12: Thanh ghi dùng cho 1 số trường hợp đặc biệt:
+							Lệnh nhảy hàm (BL) trên ARM được mã hóa offset trong 1 tầm giới hạn, nếu quá xa thì linker sẽ tự chèn thêm 1 đoạn code nhỏ xử lý - đoạn này R12 sẽ load địa chỉ đích.	
+							Khi gọi 1 hàm nằm trong file .so, chương trình phải tra bảng PLT để tìm địa chỉ thật của hàm đó lúc runtime — đoạn code tra bảng này cũng dùng R12 làm thanh ghi tạm.
+			Group 2: R13-R15
+				+ R13 - SP (Stack Pointer): SP luôn trỏ tới đỉnh của stack hiện tại.
+				+ R14 - LR (Link Register): LR lưu return address khi 1 hàm được thực hiện bằng lệnh BL/BLX.
+				+ R15 - PC (Program Counter): PC chứa địa chỉ của lệnh đang được thực thi.
+			Group 3: CPSR (Current Program Status Register) chứa nhiều thông tin quan trọng:
+				+ Condition Flags
+				+ T-bit (Thumb bit): Xác định CPU đang thực thi ở ARM state (T = 0), Thumb state (T = 1)
+				+ Ngoài ra còn chứa nhiều bit để set quyền CPU (kernel mode, interrupt mode,...)
+
+			* Kiến thức thêm: 1 biến có thể được lưu trên register bất kỳ từ R0-R15, vậy lúc kiến thức về memory layout khi nó có vùng stack khi hàm đc gọi sẽ có vùng chứa biến argument + biến cục bộ của hàm mà. Mâu thuẫn?
+				--> Memory layout chỉ là mô hình khái niệm (ko bắt buộc tuân theo), nhưng luật chơi là của compiler nó dùng sao thì nó dùng, ví dụ 1 biến thì nó sẽ thể lưu trên register mà ko cần dùng đến stack. 
+					Nhưng mà vẫn có địa chỉ của biến trên stack mà? 
+					--> Khi yêu cầu địa chỉ thì thằng compiler mới miễn cưỡng đẩy lên stack. 
+				
+		Layer 2: Nhận biết mode ISA
+			* Đứng trên góc nhìn của người viết ASM thì mình cần biết được CPU kiến trúc gì, hỗ trợ các mode gì -> Từ đó dùng ISA tương ứng (ARM và thumb sẽ có tập lệnh khác), nhìn vào source mình có thể biết được vùng code nào là mode ARM hoặc Thumb. 
+				Nhưng, ASM là source code gốc, và khi chỉ có machine code thì mình chỉ có được disassembly (là file dịch ngược từ machine code), nó ko phải là asm gốc nên hoàn toàn ko thể nhìn vào cú pháp mà đoán được. 
+				Nếu có ELF thì sẽ có đầy đủ thông tin. Nhưng nếu là .bin (firmware) thì phải đi theo hướng khác.
+				Bắt buộc phải check các vùng code (bất kì các điểm nhảy (check địa chỉ đích điểm nhảy), ví dụ: gọi hàm, trả về hàm, nhảy đến đoạn code khác,...) - này có tool support cho. 
+			- ARM state -> luôn 32-bit instruction.
+			  Thumb state -> instruction có thể 16 hoặc 32 bit (Thumb-2).
+				
+	0.4 Tìm hiểu deeper into AArch64
+		Layer 1: Register + AAPCS64 (ARM Architecture Procedure Call Standard 64)
+			AArch64 cung cấp 31 thanh ghi (X0-X30) + SP + PC (riêng biệt).
+			Điểm mới: mỗi thanh ghi đều truy cập được: Xn (full 64-bit) và Wn (32-bit thấp) của chính thanh ghi đó. 
+			AArch64 thay thế CPSR bằng PSTATE (Processor State).
+			Tương tự như AArch32, AArch64 có chuẩn riêng là AAPCS64.
+
+			Group 1: X0-X29 
+				+ X0-X7: Argument - tối đa 8 tham số đầu tiên nằm ở đây (nhiều hơn thì đẩy qua stack)
+						 X0 sẽ chứa return value (và X1 nếu cần)
+				+ X8: SVC #0, số hiệu syscall
+				+ X19-X28: (Giống R4-R11)
+				+ X30: LR (Link Register) (Giống R14)
+			Group 2: Thanh ghi riêng biệt (điểm mới ko nằm trong X0-X30)
+				+ SP: Stack Pointer 
+				+ PC: Program Counter
+
+		Layer 2: Nhận biết mode ISA
+			- Chỉ có 1 mode là A64 - luôn 32-bit instruction.
+
+	0.5 CPU lưu trữ dữ liệu nhiều byte vào bộ nhớ
+		* ARM thường là little-endian
+
+		Giả sử ta có một số 32-bit: 
+			0x12345678
+
+		Nó gồm 4 byte:
+			Little-endian sẽ lưu byte thấp (LSB) trước.
+
+			Address     Value
+			0x1000      0x78
+			0x1001      0x56
+			0x1002      0x34
+			0x1003      0x12
+
+		Nhìn theo địa chỉ tăng dần:
+		0x78 0x56 0x34 0x12
